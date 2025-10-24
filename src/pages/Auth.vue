@@ -169,7 +169,7 @@ import { ref, computed } from "vue";
 import { useRouter } from "vue-router";
 import { Form, Field, defineRule, configure } from "vee-validate";
 import { required, email, min, confirmed } from "@vee-validate/rules";
-import Button from "@/components/ui/button.vue";
+import Button from "@/components/ui/button/Button.vue";
 import { useAuth } from "@/composables/useAuth";
 import type { SignupFormData, LoginFormData } from "@/types";
 

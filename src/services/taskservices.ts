@@ -20,7 +20,7 @@ import {
   type UpdateTaskRequest,
   type TaskApiResponse,
   type SingleTaskApiResponse,
-} from "@/types/types";
+} from "@/types";
 
 // get all tasks
 export const getTasks = async (
