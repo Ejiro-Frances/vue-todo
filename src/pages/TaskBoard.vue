@@ -107,7 +107,7 @@ import { Button } from "@/components/ui/button";
 // import { Skeleton } from "@/components/ui/skeleton";
 
 // Auth Guard
-useAuthGuard({ requireAuth: true });
+// useAuthGuard({ requireAuth: true });
 
 // Types
 type ActiveFilter = "ALL" | "TODO" | "IN_PROGRESS" | "DONE";
@@ -252,8 +252,6 @@ const handleSearchChange = (e: Event) => {
   searchQuery.value = target.value;
 };
 const handleClearSearch = () => (searchQuery.value = "");
-
-
 
 // 🛰️ Online / Offline sync
 const { isSyncing, syncTasks } = useTaskSync();
