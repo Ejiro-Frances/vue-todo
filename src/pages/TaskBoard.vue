@@ -104,17 +104,20 @@ import TaskFilterButtons from "@/components/tasks/TaskFilterButtons.vue";
 import PaginationControls from "@/components/tasks/PaginationControls.vue";
 import TaskFormModal from "@/components/tasks/TaskModal.vue";
 import { Button } from "@/components/ui/button";
-import skeleton from "@/components/ui/skeleton.vue";
+// import { Skeleton } from "@/components/ui/skeleton";
 
-// 🧠 Auth Guard
+// Auth Guard
 useAuthGuard({ requireAuth: true });
+
+// Types
+type ActiveFilter = "ALL" | "TODO" | "IN_PROGRESS" | "DONE";
 
 const notificationStore = useNotificationStore();
 const addNotification = notificationStore.addNotification;
 
 // 🔧 State
 const isModalOpen = ref(false);
-const activeFilter = ref("ALL");
+const activeFilter = ref<ActiveFilter>("ALL");
 const searchQuery = ref("");
 const debouncedSearch = ref("");
 
@@ -122,11 +125,15 @@ const debouncedSearch = ref("");
 const currentPage = ref(1);
 const tasksPerPage = ref(paginationConfig.DEFAULT_TASKS_PER_PAGE);
 
+// Reset to page 1 when filtering or searching
+watch([activeFilter, debouncedSearch], () => {
+  currentPage.value = 1;
+});
+
 // 🧩 Task operations composable
 const {
   editingTask,
   editForms,
-  setEditForms,
   updatingTaskId,
   deletingTaskId,
   handleToggleTask,
@@ -135,17 +142,19 @@ const {
   handleSaveEdit,
   handleCancelEdit,
   createMutation,
+  handleEditChange,
 } = useTaskOperations({
-  page: currentPage,
-  limit: tasksPerPage,
-  status: activeFilter,
-  search: debouncedSearch,
+  page: currentPage as any,
+  limit: tasksPerPage as any,
+  status: activeFilter as any,
+  search: debouncedSearch as any,
 });
 
 // 🕐 Debounce search
+let debounceTimer: number;
 watch(searchQuery, (newVal) => {
-  clearTimeout(debouncedSearch._timer);
-  debouncedSearch._timer = setTimeout(() => {
+  clearTimeout(debounceTimer);
+  debounceTimer = window.setTimeout(() => {
     debouncedSearch.value = newVal;
   }, 300);
 });
@@ -164,6 +173,8 @@ const { data: taskResponse, isLoading } = useQuery({
       await saveTasksToStorage({
         data: response.data,
         meta: response.meta ?? {
+          total: 0,
+          limit: tasksPerPage.value,
           page: 1,
           totalPages: 1,
           hasNextPage: false,
@@ -190,13 +201,39 @@ const { data: taskResponse, isLoading } = useQuery({
 
 // 🧮 Computed
 const tasks = computed(() => taskResponse.value?.data ?? []);
-const meta = computed(() => taskResponse.value?.meta ?? {});
+const defaultMeta = {
+  total: 0,
+  limit: paginationConfig.DEFAULT_TASKS_PER_PAGE,
+  page: 1,
+  totalPages: 1,
+  hasNextPage: false,
+  hasPreviousPage: false,
+};
+const meta = computed(() => taskResponse.value?.meta ?? defaultMeta);
+
+// Query for all tasks to get accurate counts.
+// This fetches up to 9999 tasks to provide accurate counts for the filter buttons.
+// This is a client-side workaround for the API not providing total counts.
+const { data: allTasksResponse } = useQuery({
+  queryKey: ["tasks", "all-for-counts"],
+  queryFn: () => getTasks(1, 9999, "ALL", ""),
+  staleTime: 1000 * 60 * 5, // 5 minutes
+  retry: 1,
+});
 
 // Status counts
 const statusCounts = computed(() => {
-  const counts = { ALL: tasks.value.length, TODO: 0, IN_PROGRESS: 0, DONE: 0 };
-  for (const t of tasks.value) {
-    if (counts[t.status] !== undefined) counts[t.status]++;
+  const allTasks = allTasksResponse.value?.data ?? [];
+  const counts = {
+    ALL: allTasks.length,
+    TODO: 0,
+    IN_PROGRESS: 0,
+    DONE: 0,
+  };
+  for (const t of allTasks) {
+    if (counts[t.status] !== undefined) {
+      counts[t.status]++;
+    }
   }
   return counts;
 });
@@ -210,16 +247,13 @@ const paginationData = computed(() => ({
 }));
 
 // Search handlers
-const handleSearchChange = (e) => (searchQuery.value = e.target.value);
+const handleSearchChange = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  searchQuery.value = target.value;
+};
 const handleClearSearch = () => (searchQuery.value = "");
 
-// Edit form change
-const handleEditChange = (id, field, value) => {
-  setEditForms((prev) => ({
-    ...prev,
-    [id]: { ...prev[id], [field]: value },
-  }));
-};
+
 
 // 🛰️ Online / Offline sync
 const { isSyncing, syncTasks } = useTaskSync();
